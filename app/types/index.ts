@@ -71,8 +71,21 @@ export interface ValidationError {
   message: string;
 }
 
+export interface OwnerPropertyAssignment {
+  propertyId: string;
+  ownerId: string;
+  ownershipPercentage: number;
+  residentAtProperty: boolean;
+  residentDateRange?: {
+    from: Date;
+    to: Date;
+  };
+  taxCredits?: number;
+}
+
 export interface FormData {
   owners: Owner[];
   properties: Property[];
   ownerPropertyRelationships: OwnerPropertyRelationship[];
+  assignments: OwnerPropertyAssignment[];
 } 

@@ -8,7 +8,13 @@ import AssignmentsStep from './steps/AssignmentsStep';
 import ReviewStep from './steps/ReviewStep';
 import ProgressBar from './ProgressBar';
 import { FormData } from '../types';
-import { validateFormData, ValidationError } from '../utils/validation';
+import { 
+  validateOwner, 
+  validateProperty, 
+  validateAssignments, 
+  validateFormData,
+  ValidationError 
+} from '../utils/validation';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorPage from './ErrorPage';
 import SuccessPage from './SuccessPage';
@@ -27,7 +33,8 @@ const MultiStepForm = () => {
   const [formData, setFormData] = useState<FormData>({
     owners: [],
     properties: [],
-    assignments: []
+    assignments: [],
+    ownerPropertyRelationships: []
   });
   const [formState, setFormState] = useState<FormState>({
     status: 'idle',
@@ -186,7 +193,8 @@ const MultiStepForm = () => {
           setFormData({
             owners: [],
             properties: [],
-            assignments: []
+            assignments: [],
+            ownerPropertyRelationships: []
           });
           setCurrentStep('welcome');
           setFormState({ status: 'idle', validationErrors: [] });
@@ -204,7 +212,8 @@ const MultiStepForm = () => {
           setFormData({
             owners: [],
             properties: [],
-            assignments: []
+            assignments: [],
+            ownerPropertyRelationships: []
           });
           setCurrentStep('welcome');
           setFormState({ status: 'idle', validationErrors: [] });

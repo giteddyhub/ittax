@@ -84,8 +84,28 @@ export const validateProperty = (property: Property): ValidationError[] => {
     }
   }
 
-  if (property.monthsOccupied < 0 || property.monthsOccupied > 12) {
-    errors.push({ field: 'monthsOccupied', message: 'Months occupied must be between 0 and 12' });
+  if (!property.occupancyPeriods || property.occupancyPeriods.length === 0) {
+    errors.push({ 
+      field: 'occupancyPeriods', 
+      message: 'At least one occupancy period is required' 
+    });
+  } else {
+    const totalMonths = property.occupancyPeriods.reduce((sum, period) => sum + period.months, 0);
+    if (totalMonths !== 12) {
+      errors.push({ 
+        field: 'occupancyPeriods', 
+        message: `Total months across all periods must equal 12 (currently ${totalMonths})` 
+      });
+    }
+
+    property.occupancyPeriods.forEach((period, index) => {
+      if (period.months < 0 || period.months > 12) {
+        errors.push({ 
+          field: `occupancyPeriods[${index}].months`, 
+          message: 'Months must be between 0 and 12' 
+        });
+      }
+    });
   }
 
   return errors;

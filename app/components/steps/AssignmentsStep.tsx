@@ -42,37 +42,6 @@ const validateOwner = (owner: Owner): ValidationError[] => {
     errors.push({ field: 'italianTaxCode', message: 'Invalid Codice Fiscale format' });
   }
 
-  if (!owner.address?.street?.trim()) {
-    errors.push({ field: 'address.street', message: 'Street address is required' });
-  }
-
-  if (!owner.address?.city?.trim()) {
-    errors.push({ field: 'address.city', message: 'City is required' });
-  }
-
-  if (!owner.address?.country?.trim()) {
-    errors.push({ field: 'address.country', message: 'Country is required' });
-  }
-
-  if (!owner.address?.zip?.trim()) {
-    errors.push({ field: 'address.zip', message: 'ZIP/Postal code is required' });
-  }
-
-  if (owner.isResidentInItaly) {
-    if (!owner.italianResidenceDetails?.street?.trim()) {
-      errors.push({ field: 'italianResidenceDetails.street', message: 'Italian street address is required' });
-    }
-    if (!owner.italianResidenceDetails?.comuneName?.trim()) {
-      errors.push({ field: 'italianResidenceDetails.comuneName', message: 'Comune name is required' });
-    }
-    if (!owner.italianResidenceDetails?.province?.trim()) {
-      errors.push({ field: 'italianResidenceDetails.province', message: 'Province is required' });
-    }
-    if (!owner.italianResidenceDetails?.zip?.trim()) {
-      errors.push({ field: 'italianResidenceDetails.zip', message: 'Italian ZIP code is required' });
-    }
-  }
-
   return errors;
 };
 
@@ -84,12 +53,14 @@ const AssignmentsStep = ({
 }: AssignmentsStepProps) => {
   const [isAddOwnerModalOpen, setIsAddOwnerModalOpen] = useState(false);
   const [currentPropertyId, setCurrentPropertyId] = useState<string>('');
+  const [ownerErrors, setOwnerErrors] = useState<ValidationError[]>([]);
   const [newOwner, setNewOwner] = useState<Owner>({
     id: '',
     firstName: '',
     lastName: '',
     dateOfBirth: new Date(),
     countryOfBirth: '',
+    citizenship: '',
     italianTaxCode: '',
     address: {
       street: '',
@@ -97,9 +68,9 @@ const AssignmentsStep = ({
       zip: '',
       country: '',
     },
+    maritalStatus: 'UNMARRIED',
     isResidentInItaly: false,
   });
-  const [ownerErrors, setOwnerErrors] = useState<ValidationError[]>([]);
 
   const getAssignment = (propertyId: string, ownerId: string) => {
     return formData.assignments.find(
@@ -136,6 +107,37 @@ const AssignmentsStep = ({
       ...formData,
       assignments: newAssignments,
     });
+  };
+
+  const handleNewOwnerChange = (field: string, value: any) => {
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.') as [keyof Owner, string];
+      setNewOwner(prev => ({
+        ...prev,
+        [parent]: {
+          ...(prev[parent] as Record<string, any>),
+          [child]: value,
+        },
+      }));
+    } else {
+      setNewOwner(prev => ({
+        ...prev,
+        [field]: value,
+      }));
+    }
+    
+    setOwnerErrors(prev => prev.filter(error => error.field !== field));
+  };
+
+  const calculateTotalOwnership = (propertyId: string) => {
+    return formData.assignments
+      .filter((a) => a.propertyId === propertyId)
+      .reduce((sum, assignment) => sum + (assignment.ownershipPercentage || 0), 0);
+  };
+
+  const getOwnerName = (ownerId: string) => {
+    const owner = formData.owners.find((o) => o.id === ownerId);
+    return owner ? `${owner.firstName} ${owner.lastName}` : 'Unknown Owner';
   };
 
   const handleAddOwner = () => {
@@ -176,6 +178,7 @@ const AssignmentsStep = ({
       lastName: '',
       dateOfBirth: new Date(),
       countryOfBirth: '',
+      citizenship: '',
       italianTaxCode: '',
       address: {
         street: '',
@@ -183,43 +186,12 @@ const AssignmentsStep = ({
         zip: '',
         country: '',
       },
+      maritalStatus: 'UNMARRIED',
       isResidentInItaly: false,
     });
     setOwnerErrors([]);
     setIsAddOwnerModalOpen(false);
     setCurrentPropertyId('');
-  };
-
-  const handleNewOwnerChange = (field: string, value: any) => {
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
-      setNewOwner(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value,
-        },
-      }));
-    } else {
-      setNewOwner(prev => ({
-        ...prev,
-        [field]: value,
-      }));
-    }
-    
-    // Clear the error for this field if it exists
-    setOwnerErrors(prev => prev.filter(error => error.field !== field));
-  };
-
-  const calculateTotalOwnership = (propertyId: string) => {
-    return formData.assignments
-      .filter((a) => a.propertyId === propertyId)
-      .reduce((sum, assignment) => sum + (assignment.ownershipPercentage || 0), 0);
-  };
-
-  const getOwnerName = (ownerId: string) => {
-    const owner = formData.owners.find((o) => o.id === ownerId);
-    return owner ? `${owner.firstName} ${owner.lastName}` : 'Unknown Owner';
   };
 
   return (
@@ -243,7 +215,6 @@ const AssignmentsStep = ({
           </div>
 
           <div className="space-y-8">
-            {/* Existing Owners Section */}
             {formData.owners.map((owner) => {
               const assignment = getAssignment(property.id, owner.id);
               return (
@@ -275,7 +246,6 @@ const AssignmentsStep = ({
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Residency Status */}
                     <div className="space-y-4">
                       <Toggle
                         checked={assignment?.residentAtProperty || false}
@@ -342,7 +312,6 @@ const AssignmentsStep = ({
                       )}
                     </div>
 
-                    {/* Tax Credits */}
                     <div className="space-y-4">
                       <Toggle
                         checked={assignment?.taxCredits !== undefined}
@@ -375,7 +344,6 @@ const AssignmentsStep = ({
               );
             })}
 
-            {/* Add New Owner Button */}
             <div className="mt-6">
               <Button
                 variant="outline"
@@ -389,7 +357,6 @@ const AssignmentsStep = ({
               </Button>
             </div>
 
-            {/* Ownership Total */}
             <div className="mt-4">
               <div
                 className={`text-sm font-medium ${
@@ -410,7 +377,6 @@ const AssignmentsStep = ({
         </div>
       ))}
 
-      {/* Add Owner Modal */}
       <Modal
         isOpen={isAddOwnerModalOpen}
         onClose={() => {
@@ -422,6 +388,7 @@ const AssignmentsStep = ({
             lastName: '',
             dateOfBirth: new Date(),
             countryOfBirth: '',
+            citizenship: '',
             italianTaxCode: '',
             address: {
               street: '',
@@ -429,6 +396,7 @@ const AssignmentsStep = ({
               zip: '',
               country: '',
             },
+            maritalStatus: 'UNMARRIED',
             isResidentInItaly: false,
           });
           setCurrentPropertyId('');
@@ -460,7 +428,6 @@ const AssignmentsStep = ({
         </div>
       </Modal>
 
-      {/* Navigation Buttons */}
       <div className="flex justify-between space-x-4 mt-8">
         <Button variant="secondary" onClick={onBack}>
           Back

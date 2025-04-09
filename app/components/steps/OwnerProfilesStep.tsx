@@ -5,6 +5,8 @@ import { FormData, Owner } from '../../types';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
 import Toggle from '../ui/Toggle';
+import { InformationCircleIcon as InfoIcon } from '@heroicons/react/24/outline';
+import Select from '../ui/Select';
 
 interface OwnerProfilesStepProps {
   formData: FormData;
@@ -233,18 +235,18 @@ const OwnerProfilesStep = ({
     const updatedOwners = [...formData.owners];
     
     if (field.includes('.')) {
-      const [parent, child] = field.split('.');
+      const [parent, child] = field.split('.') as [keyof Owner, string];
       updatedOwners[index] = {
         ...updatedOwners[index],
         [parent]: {
-          ...updatedOwners[index][parent],
+          ...(updatedOwners[index][parent] as Record<string, any>),
           [child]: value
         }
       };
     } else {
       updatedOwners[index] = {
         ...updatedOwners[index],
-        [field]: value
+        [field as keyof Owner]: value
       };
     }
 
@@ -330,9 +332,10 @@ const OwnerProfilesStep = ({
       </div>
 
       {formData.owners.map((owner, index) => {
-        const ownerErrors = errors[index] || [];
-        const getError = (field: string) => 
-          ownerErrors.find(error => error.field === field)?.message;
+        const getError = (field: string) => {
+          const ownerErrors = errors[index] || [];
+          return ownerErrors.find(error => error.field === field)?.message;
+        };
 
         return (
           <div
@@ -417,13 +420,10 @@ const OwnerProfilesStep = ({
                 />
 
                 <div>
-                  <label className="block text-gray-700 text-sm font-medium mb-2">
-                    Marital Status
-                  </label>
-                  <select
+                  <Select
+                    label="Marital Status"
                     value={owner.maritalStatus}
                     onChange={(e) => handleOwnerChange(index, 'maritalStatus', e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200"
                     required
                     error={getError('maritalStatus')}
                   >
@@ -432,7 +432,7 @@ const OwnerProfilesStep = ({
                     <option value="DIVORCED">Divorced</option>
                     <option value="WIDOWED">Widowed</option>
                     <option value="SEPARATED">Separated</option>
-                  </select>
+                  </Select>
                 </div>
               </div>
 
@@ -490,50 +490,41 @@ const OwnerProfilesStep = ({
                 </div>
 
                 {owner.isResidentInItaly && (
-                  <div className="space-y-6">
-                    <h4 className="text-lg font-medium text-gray-800 mt-8">
+                  <div className="space-y-6 mt-6">
+                    <h4 className="text-lg font-medium text-gray-800">
                       Italian Residence Details
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <Input
                         label="Street Address"
                         value={owner.italianResidenceDetails?.street || ''}
-                        onChange={(e) =>
-                          handleOwnerChange(index, 'italianResidenceDetails.street', e.target.value)
-                        }
+                        onChange={(e) => handleOwnerChange(index, 'italianResidenceDetails.street', e.target.value)}
                         placeholder="Enter Italian street address"
                         required
-                        error={getError(index, 'italianResidenceDetails.street')}
+                        error={getError('italianResidenceDetails.street')}
                       />
                       <Input
                         label="Comune"
                         value={owner.italianResidenceDetails?.comuneName || ''}
-                        onChange={(e) =>
-                          handleOwnerChange(index, 'italianResidenceDetails.comuneName', e.target.value)
-                        }
-                        placeholder="Enter comune"
+                        onChange={(e) => handleOwnerChange(index, 'italianResidenceDetails.comuneName', e.target.value)}
                         required
-                        error={getError(index, 'italianResidenceDetails.comuneName')}
+                        error={getError('italianResidenceDetails.comuneName')}
                       />
                       <Input
                         label="Province"
                         value={owner.italianResidenceDetails?.province || ''}
-                        onChange={(e) =>
-                          handleOwnerChange(index, 'italianResidenceDetails.province', e.target.value)
-                        }
+                        onChange={(e) => handleOwnerChange(index, 'italianResidenceDetails.province', e.target.value)}
                         placeholder="Enter province"
                         required
-                        error={getError(index, 'italianResidenceDetails.province')}
+                        error={getError('italianResidenceDetails.province')}
                       />
                       <Input
                         label="ZIP Code"
                         value={owner.italianResidenceDetails?.zip || ''}
-                        onChange={(e) =>
-                          handleOwnerChange(index, 'italianResidenceDetails.zip', e.target.value)
-                        }
+                        onChange={(e) => handleOwnerChange(index, 'italianResidenceDetails.zip', e.target.value)}
                         placeholder="Enter ZIP code"
                         required
-                        error={getError(index, 'italianResidenceDetails.zip')}
+                        error={getError('italianResidenceDetails.zip')}
                       />
                     </div>
                   </div>

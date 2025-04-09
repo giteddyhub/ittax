@@ -1,6 +1,6 @@
 'use client';
 
-import { FormData } from '../../types';
+import { FormData, Owner, OwnerPropertyAssignment } from '../../types';
 import Button from '../ui/Button';
 import { useState } from 'react';
 
@@ -61,7 +61,7 @@ const ReviewStep = ({ formData, onSubmit, onBack }: ReviewStepProps) => {
     return formData.assignments
       .filter(assignment => 
         assignment.propertyId === propertyId && 
-        assignment.ownershipPercentage > 0  // Only include owners with > 0% ownership
+        assignment.ownershipPercentage > 0
       )
       .map(assignment => {
         const owner = formData.owners.find(o => o.id === assignment.ownerId);
@@ -70,7 +70,9 @@ const ReviewStep = ({ formData, onSubmit, onBack }: ReviewStepProps) => {
           assignment
         };
       })
-      .filter(item => item.owner !== undefined);
+      .filter((item): item is { owner: Owner; assignment: OwnerPropertyAssignment } => 
+        item.owner !== undefined
+      );
   };
 
   return (
@@ -101,28 +103,26 @@ const ReviewStep = ({ formData, onSubmit, onBack }: ReviewStepProps) => {
                 <p className="text-sm text-gray-600">Property Information:</p>
                 <p className="text-gray-800">
                   Type: {formatStatusText(property.propertyType)}<br />
-                  Activity Status: {formatStatusText(property.activityStatus)}<br />
-                  Occupancy: {formatStatusText(property.occupancyStatus)}
-                  {property.occupancyStatus.toLowerCase().includes('rental') && (
-                    <><br />Months Rented: {property.monthsRented}</>
+                  Activity Status: {formatStatusText(property.activity2024)}<br />
+                  {/* Display occupancy periods */}
+                  Occupancy Periods:<br />
+                  {property.occupancyPeriods.map((period, index) => (
+                    <span key={index}>
+                      {formatStatusText(period.status)}: {period.months} months<br />
+                    </span>
+                  ))}
+                  {property.remodeling && (
+                    <>Remodeling: Yes<br /></>
                   )}
                 </p>
               </div>
             </div>
-            {property.hasRemodeling && (
+            {property.remodeling && (
               <div className="mt-4">
                 <p className="text-sm text-gray-600">Additional Information:</p>
                 <p className="text-gray-800">Has remodeling or improvements with building permits filed in the past 10 years</p>
               </div>
             )}
-            <div>
-              <p className="text-sm text-gray-600">Occupancy Information:</p>
-              {property.occupancyPeriods.map((period, index) => (
-                <p key={index} className="text-gray-800">
-                  {formatStatusText(period.status)}: {period.months} months
-                </p>
-              ))}
-            </div>
           </div>
 
           {/* Property Owners - only show if there are owners with > 0% ownership */}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { FormData, Property, ActivityStatus, PropertyType, OccupancyStatus, OccupancyPeriod } from '../../types';
+import { FormData, Property, ActivityStatus, PropertyType, OccupancyStatus, OccupancyPeriod, ValidationError } from '../../types';
 import Input from '../ui/Input';
 import Button from '../ui/Button';
 import Toggle from '../ui/Toggle';
@@ -13,36 +13,14 @@ interface PropertiesStepProps {
   onBack: () => void;
 }
 
-interface ValidationError {
-  field: string;
-  message: string;
-}
-
-interface Property {
-  id: string;
-  label?: string;  // Property Label (Optional)
-  address: {
-    street: string;
-    comune: string;
-    province: string;
-    zip: string;
-  };
-  propertyType: string;
-  activityStatus: string;  // Activity in 2024
-  occupancyStatus: string;
-  monthsRented?: number;
-  hasRemodeling?: boolean;  // Remodeling/Improvements in 2024
-  occupancyPeriods: OccupancyPeriod[];  // Replace occupancyStatus and monthsOccupied
-}
-
 const validateProperty = (property: Property): ValidationError[] => {
   const errors: ValidationError[] = [];
 
-  // Property Name validation
-  if (!property.label?.trim()) {
+  // Property Name validation is optional
+  if (property.label && !property.label.trim()) {
     errors.push({
       field: 'label',
-      message: 'Property name is required'
+      message: 'Property name cannot be empty if provided'
     });
   }
 
@@ -75,15 +53,35 @@ const validateProperty = (property: Property): ValidationError[] => {
     });
   }
 
-  // No need to validate propertyType, activityStatus, or occupancyStatus as they have defaults
-
-  // Validate months rented only if it's not the default value
-  if (property.occupancyStatus?.toLowerCase().includes('rental') && 
-      (!property.monthsRented || property.monthsRented < 1 || property.monthsRented > 12)) {
+  // Validate activity2024 related fields
+  if (property.activity2024 === 'purchased' || property.activity2024 === 'both') {
+    if (!property.purchaseDate) {
       errors.push({
-        field: 'monthsRented',
-        message: 'Number of months rented must be between 1 and 12'
+        field: 'purchaseDate',
+        message: 'Purchase date is required'
       });
+    }
+    if (!property.purchasePrice) {
+      errors.push({
+        field: 'purchasePrice',
+        message: 'Purchase price is required'
+      });
+    }
+  }
+
+  if (property.activity2024 === 'sold' || property.activity2024 === 'both') {
+    if (!property.saleDate) {
+      errors.push({
+        field: 'saleDate',
+        message: 'Sale date is required'
+      });
+    }
+    if (!property.salePrice) {
+      errors.push({
+        field: 'salePrice',
+        message: 'Sale price is required'
+      });
+    }
   }
 
   return errors;
@@ -105,16 +103,17 @@ const PropertiesStep = ({
     }
   }, []);
 
-  // Add this useEffect to ensure existing properties have default values
+  // Update this useEffect to use the correct property names
   useEffect(() => {
     if (formData.properties.length > 0) {
       const updatedProperties = formData.properties.map(property => ({
         ...property,
         propertyType: property.propertyType || 'RESIDENTIAL',
-        activityStatus: property.activityStatus || 'OWNED_ALL_YEAR',
-        occupancyStatus: property.occupancyStatus || 'LONG_TERM_RENTAL',
-        monthsRented: property.occupancyStatus?.toLowerCase().includes('rental') ? 
-          (property.monthsRented || 12) : undefined
+        activity2024: property.activity2024 || 'neither',
+        occupancyPeriods: property.occupancyPeriods || [{ 
+          status: 'PERSONAL_USE' as OccupancyStatus, 
+          months: 12 
+        }]
       }));
 
       if (JSON.stringify(updatedProperties) !== JSON.stringify(formData.properties)) {
@@ -135,12 +134,13 @@ const PropertiesStep = ({
         province: '',
         zip: ''
       },
-      propertyType: 'RESIDENTIAL',  // Default value
-      activityStatus: 'OWNED_ALL_YEAR',  // Default value
-      occupancyStatus: 'LONG_TERM_RENTAL',  // Default value
-      monthsRented: 12,  // Default value since it's long-term rental
-      hasRemodeling: false,
-      occupancyPeriods: [{ status: 'VACANT', months: 12 }]
+      propertyType: 'RESIDENTIAL',
+      activity2024: 'neither',
+      remodeling: false,
+      occupancyPeriods: [{
+        status: 'PERSONAL_USE',
+        months: 12
+      }]
     };
 
     setFormData({
@@ -153,18 +153,20 @@ const PropertiesStep = ({
     const updatedProperties = [...formData.properties];
     
     if (field.includes('.')) {
-      const [parent, child] = field.split('.');
+      const [parent, child] = field.split('.') as [keyof Property, string];
+      const parentObj = updatedProperties[index][parent] as Record<string, any>;
+      
       updatedProperties[index] = {
         ...updatedProperties[index],
         [parent]: {
-          ...updatedProperties[index][parent],
+          ...parentObj,
           [child]: value
         }
       };
     } else {
       updatedProperties[index] = {
         ...updatedProperties[index],
-        [field]: value
+        [field as keyof Property]: value
       };
     }
 
@@ -286,15 +288,21 @@ const PropertiesStep = ({
     const property = updatedProperties[propertyIndex];
     
     if (!property.occupancyPeriods) {
-      property.occupancyPeriods = [{ status: 'VACANT', months: 12 }];
+      property.occupancyPeriods = [{ status: 'PERSONAL_USE', months: 12 }];
     }
 
     const periods = [...property.occupancyPeriods];
     
     if (field === 'status') {
-      periods[periodIndex] = { ...periods[periodIndex], status: value as OccupancyStatus };
+      periods[periodIndex] = {
+        ...periods[periodIndex],
+        status: value as OccupancyStatus
+      };
     } else {
-      periods[periodIndex] = { ...periods[periodIndex], months: value as number };
+      periods[periodIndex] = {
+        ...periods[periodIndex],
+        months: value as number
+      };
     }
 
     // Calculate total months excluding the last period
@@ -315,8 +323,12 @@ const PropertiesStep = ({
       }
     }
 
-    property.occupancyPeriods = periods;
-    
+    // Update the property with the new periods
+    updatedProperties[propertyIndex] = {
+      ...property,
+      occupancyPeriods: periods
+    };
+
     setFormData({
       ...formData,
       properties: updatedProperties
@@ -473,8 +485,8 @@ const PropertiesStep = ({
                   Activity in 2024
                 </label>
                 <select
-                  value={property.activityStatus}
-                  onChange={(e) => handlePropertyChange(propertyIndex, 'activityStatus', e.target.value as ActivityStatus)}
+                  value={property.activity2024}
+                  onChange={(e) => handlePropertyChange(propertyIndex, 'activity2024', e.target.value as ActivityStatus)}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200"
                   required
                 >
@@ -487,7 +499,7 @@ const PropertiesStep = ({
             </div>
 
             {/* Purchase/Sale Information */}
-            {(property.activityStatus === 'purchased' || property.activityStatus === 'both') && (
+            {(property.activity2024 === 'purchased' || property.activity2024 === 'both') && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-purple-50 rounded-lg">
                 <h4 className="text-lg font-medium text-gray-800 col-span-2">
                   Purchase Details
@@ -511,7 +523,7 @@ const PropertiesStep = ({
               </div>
             )}
 
-            {(property.activityStatus === 'sold' || property.activityStatus === 'both') && (
+            {(property.activity2024 === 'sold' || property.activity2024 === 'both') && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-purple-50 rounded-lg">
                 <h4 className="text-lg font-medium text-gray-800 col-span-2">
                   Sale Details
@@ -621,8 +633,8 @@ const PropertiesStep = ({
             {/* Remodeling Information */}
             <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
               <Toggle
-                checked={property.hasRemodeling}
-                onChange={(checked) => handlePropertyChange(propertyIndex, 'hasRemodeling', checked)}
+                checked={property.remodeling}
+                onChange={(checked) => handlePropertyChange(propertyIndex, 'remodeling', checked)}
                 label="Did you do any remodeling or improvements for which a building permit was filed in the past 10 years?"
               />
             </div>
