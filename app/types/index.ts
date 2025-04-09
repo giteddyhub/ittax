@@ -66,6 +66,11 @@ export interface OwnerPropertyRelationship {
   isResidentAtProperty: boolean;
 }
 
+export interface ValidationError {
+  field: string;
+  message: string;
+}
+
 export interface FormData {
   owners: Owner[];
   properties: Property[];
